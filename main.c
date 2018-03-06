@@ -1,22 +1,20 @@
-#include <stm32l476xx.h>
+#include <stdint.h>
 #define nop()  __asm__ __volatile__ ("nop" ::)
 
 int ontime  = 20000000;
 int offtime = 10000000;
 
-int main() {
-  /* Enbale GPIOA clock */
-  RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-  nop();nop();nop();
-  /* Configure GPIOA pin 5 as output */
-  GPIOA->MODER = 0xAB555555;
+void uart_write_string(char* str);
+void uart_write_uint(uint32_t i);
+void uart_write_nl();
 
+int main() {
   int n;
   while (1) {
-    GPIOA->ODR = 0xFFFF;
+    uart_write_string("Hello!\n");
+    uart_write_uint(12345);
+    uart_write_nl();
     for(n=0;n<ontime;n++) nop();
-    GPIOA->ODR = 0x0;
-    for(n=0;n<offtime;n++) nop();
   }
   return(0);
 

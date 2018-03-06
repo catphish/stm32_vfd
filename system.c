@@ -63,4 +63,26 @@ void SystemInit() {
   RCC->CFGR |= RCC_CFGR_SW_PLL;
   /* Check clock source */
   while ((RCC->CFGR & RCC_CFGR_SWS_PLL) != RCC_CFGR_SWS_PLL);
+
+  // Enable GPIOA clock
+  RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
+  // A2 -> USART2_TX
+  GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL2_Msk;
+  GPIOA->AFR[0] |= GPIO_AFRL_AFSEL2_0 | GPIO_AFRL_AFSEL2_1 | GPIO_AFRL_AFSEL2_2;
+  // PORTA Modes
+  GPIOA->MODER = 0xABFFFFEF;
+
+  // Enable USART2 clock
+  RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
+  // Disable USART2
+  USART2->CR1 = 0;
+  // Set data rate
+  USART2->BRR = 694; //115200
+  // Enable USART2
+  USART2->CR1 |= USART_CR1_UE;
+  // Enable transmit
+  USART2->CR1 |= USART_CR1_TE;
+
+  // TIM1
+  // TIM2
 }
