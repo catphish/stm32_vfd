@@ -1,28 +1,6 @@
-/*
-*
-* Copyright (C) Patryk Jaworski <regalis@regalis.com.pl>
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*
-*/
 #include <stm32l476xx.h>
 
-/* Helpers for SystemInitError() */
-#define SYSTEM_INIT_ERROR_FLASH 0x01
-#define SYSTEM_INIT_ERROR_PLL 0x02
-#define SYSTEM_INIT_ERROR_CLKSRC 0x04
-#define SYSTEM_INIT_ERROR_HSI 0x08
+#define nop()  __asm__ __volatile__ ("nop" ::)
 
 void SystemInitError(uint8_t error_source) {
   while(1);
@@ -54,11 +32,6 @@ void SystemInit() {
    */
   FLASH->ACR |= FLASH_ACR_ICEN | FLASH_ACR_PRFTEN | FLASH_ACR_LATENCY_2WS;
 
-  /* Check flash latency */
-  if ((FLASH->ACR & FLASH_ACR_LATENCY) != FLASH_ACR_LATENCY_2WS) {
-    SystemInitError(SYSTEM_INIT_ERROR_FLASH);
-  }
-
   /* Set clock source to PLL */
   RCC->CFGR |= RCC_CFGR_SW_PLL;
   /* Check clock source */
@@ -66,15 +39,29 @@ void SystemInit() {
 
   // Enable GPIOA clock
   RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
+  // Enable GPIOB clock
+  RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
+  // Enable GPIOC clock
+  RCC->AHB2ENR |= RCC_AHB2ENR_GPIOCEN;
   // A2 -> USART2_TX
   GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL2_Msk;
   GPIOA->AFR[0] |= GPIO_AFRL_AFSEL2_0 | GPIO_AFRL_AFSEL2_1 | GPIO_AFRL_AFSEL2_2;
   // A8,A9,A10 -> TIM1
   GPIOA->AFR[1] &= ~(GPIO_AFRH_AFSEL8_Msk|GPIO_AFRH_AFSEL9_Msk|GPIO_AFRH_AFSEL10_Msk);
   GPIOA->AFR[1] |= GPIO_AFRH_AFSEL8_0 | GPIO_AFRH_AFSEL9_0 | GPIO_AFRH_AFSEL10_0;
+  // B13,B14,B15 -> TIM1
+  GPIOB->AFR[1] &= ~(GPIO_AFRH_AFSEL13_Msk|GPIO_AFRH_AFSEL14_Msk|GPIO_AFRH_AFSEL15_Msk);
+  GPIOB->AFR[1] |= GPIO_AFRH_AFSEL13_0 | GPIO_AFRH_AFSEL14_0 | GPIO_AFRH_AFSEL15_0;
+  // C0,C1,C2,C3 -> ADC1
+  GPIOC->AFR[0] &= ~(GPIO_AFRL_AFSEL0_Msk|GPIO_AFRL_AFSEL1_Msk|GPIO_AFRL_AFSEL2_Msk|GPIO_AFRL_AFSEL3_Msk);
+  GPIOC->AFR[0] |= GPIO_AFRH_AFSEL13_0 | GPIO_AFRH_AFSEL14_0 | GPIO_AFRH_AFSEL15_0;
   // PORTA Modes
   GPIOA->MODER = 0xABEAFFEF;
-  //GPIOA->MODER = 0xABFFFFEF;
+  // PORTB Modes
+  GPIOB->MODER = 0xABFFFFFF;
+  // PORTC Modes
+  GPIOC->MODER = 0xFFFFFFFF;
+  GPIOC->ASCR = 0xF;
 
   // Enable USART2 clock
   RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
@@ -87,15 +74,33 @@ void SystemInit() {
   // Enable transmit
   USART2->CR1 |= USART_CR1_TE;
 
+  // ADC1
+  RCC->AHB2ENR |= RCC_AHB2ENR_ADCEN;
+  // Connect to system clock
+  RCC->CCIPR |= RCC_CCIPR_ADCSEL_0 | RCC_CCIPR_ADCSEL_1;
+  // Disable DEEPPWD, enable ADVREGEN
+  ADC1->CR = ADC_CR_ADVREGEN;
+  // Wait a bit
+  int n; for(n=0;n<100000;n++) nop();
+  // Enable procedure
+  ADC1->ISR |= ADC_ISR_ADRDY;
+  ADC1->CR |= ADC_CR_ADEN;
+  while(!(ADC1->ISR & ADC_ISR_ADRDY));
+  ADC1->SQR1 = (1<<6);
+
   // TIM1
   RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
   TIM1->CR1 &= ~1;
-  TIM1->CCR1 = 20000;
+  TIM1->ARR = 40000;
+  TIM1->CCR1 = 10000;
   TIM1->CCR2 = 20000;
-  TIM1->CCR3 = 20000;
+  TIM1->CCR3 = 30000;
   TIM1->CCMR1 = (6<<12)|(6<<4);
   TIM1->CCMR2 = (6<<4);
-  TIM1->CCER = (1<<0)|(1<<4)|(1<<8);
-  TIM1->BDTR = (1<<15);
+  TIM1->CCER =  (1<<0)|(1<<4)|(1<<8); // Positive
+  TIM1->CCER |= (1<<2)|(1<<6)|(1<<10); // Negative
+  // Dead time is defines as a multiple of the clock interval 12.5ns
+  // 24 x 15.s = 300ns
+  TIM1->BDTR = (1<<15) | 24;
   TIM1->CR1 |= 1;
 }
