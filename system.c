@@ -68,33 +68,48 @@ void SystemInit() {
   // Disable USART2
   USART2->CR1 = 0;
   // Set data rate
-  USART2->BRR = 694; //115200
+  //USART2->BRR = 694; //115200
+  USART2->BRR = 80; //1M
   // Enable USART2
   USART2->CR1 |= USART_CR1_UE;
   // Enable transmit
   USART2->CR1 |= USART_CR1_TE;
 
-  // ADC1
+  // ADC123
   RCC->AHB2ENR |= RCC_AHB2ENR_ADCEN;
   // Connect to system clock
   RCC->CCIPR |= RCC_CCIPR_ADCSEL_0 | RCC_CCIPR_ADCSEL_1;
+  // Divide clock (/8)
+  ADC123_COMMON->CCR |= (4<<18);
+
+  // ADC1+2+3
   // Disable DEEPPWD, enable ADVREGEN
   ADC1->CR = ADC_CR_ADVREGEN;
+  ADC2->CR = ADC_CR_ADVREGEN;
+  ADC3->CR = ADC_CR_ADVREGEN;
   // Wait a bit
   int n; for(n=0;n<100000;n++) nop();
   // Enable procedure
   ADC1->ISR |= ADC_ISR_ADRDY;
   ADC1->CR |= ADC_CR_ADEN;
+  ADC2->ISR |= ADC_ISR_ADRDY;
+  ADC2->CR |= ADC_CR_ADEN;
+  ADC3->ISR |= ADC_ISR_ADRDY;
+  ADC3->CR |= ADC_CR_ADEN;
   while(!(ADC1->ISR & ADC_ISR_ADRDY));
-  ADC1->SQR1 = (1<<6);
+  while(!(ADC2->ISR & ADC_ISR_ADRDY));
+  while(!(ADC3->ISR & ADC_ISR_ADRDY));
+
+  // Oversampling (8x)
+  //ADC1->CFGR2 = (4<<5) | (3<<2) | 1;
 
   // TIM1
   RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
   TIM1->CR1 &= ~1;
-  TIM1->ARR = 40000;
-  TIM1->CCR1 = 10000;
-  TIM1->CCR2 = 20000;
-  TIM1->CCR3 = 30000;
+  TIM1->ARR = 16384;
+  TIM1->CCR1 = 0;
+  TIM1->CCR2 = 0;
+  TIM1->CCR3 = 0;
   TIM1->CCMR1 = (6<<12)|(6<<4);
   TIM1->CCMR2 = (6<<4);
   TIM1->CCER =  (1<<0)|(1<<4)|(1<<8); // Positive
