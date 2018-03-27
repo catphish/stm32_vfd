@@ -6,11 +6,11 @@
 #define nop()  __asm__ __volatile__ ("nop" ::)
 
 int sine_angle = 0;
-float f1=0, f2=0, f3=0;
+float fa=0, fb=0;
 float i1, i2, i3;
 float v1, v2, v3;
 float ia, ib;
-float fa, fb;
+float va, vb;
 float torque;
 float flux;
 int throttle = 0;
@@ -95,38 +95,35 @@ void TIM1_UP_TIM16_IRQHandler(void) {
 void ADC1_2_IRQHandler(void) {
   while(ADC1->CR & ADC_CR_ADSTART);
   while(ADC2->CR & ADC_CR_ADSTART);
-  i1 = ((float)(ADC1->DR) - 32812) * 0.000190738f;
-  i2 = ((float)(ADC2->DR) - 32771) * 0.000190738f;
+  i1 = ((float)(ADC1->DR) - 31715) * 0.000190738f;
+  i2 = ((float)(ADC2->DR) - 31800) * 0.000190738f * 1.04;
   i3 = 0 - i1 - i2;
 
-  v1 = TIM1->CCR1 + TIM1->CCR1 - TIM1->CCR2 - TIM1->CCR3;
-  v1 *= 0.000460452f;
-  v2 = TIM1->CCR2 + TIM1->CCR2 - TIM1->CCR1 - TIM1->CCR3;
-  v2 *= 0.000460452f;
-  v3 = TIM1->CCR3 + TIM1->CCR3 - TIM1->CCR1 - TIM1->CCR2;
-  v3 *= 0.000460452f;
+  v1 = 0.000460452f * ((float)TIM1->CCR1 + TIM1->CCR1 - TIM1->CCR2 - TIM1->CCR3);
+  v2 = 0.000460452f * ((float)TIM1->CCR2 + TIM1->CCR2 - TIM1->CCR1 - TIM1->CCR3);
+  v3 = 0.000460452f * ((float)TIM1->CCR3 + TIM1->CCR3 - TIM1->CCR1 - TIM1->CCR2);
 
   // Contol code here
 
-  f1 *= 0.999f; f1 += v1; f1 -= i1*11;
-  f2 *= 0.999f; f2 += v2; f2 -= i2*11;
-  f3 *= 0.999f; f3 += v3; f3 -= i3*11;
-
-  // Flux clarke transform
-  fa = f1 - (f2 + f3) * 0.5f;
-  fb = (f3 - f2) * 0.866025404f;
+  // Voltage clarke transform
+  va = v1 - (v2 + v3) * 0.5f;
+  vb = (v3 - v2) * 0.866025404f;
 
   // Current clarke transform
   ia = i1 - (i2 + i3) * 0.5f;
   ib = (i3 - i2) * 0.866025404f;
 
-  torque = fa * ib - fb * ia;
+  // Flux integrator
+  fa *= 0.9995f; fa += va; fa -= ia*11;
+  fb *= 0.9995f; fb += vb; fb -= ib*11;
+
+  torque = fb * ia - fa * ib;
   flux = sqrtf(fa * fa + fb * fb);
   //fangle = (atan2(fa, fb) / M_PI) * 50331647 + 50331648;
 
-  sine_angle += increment;
+  sine_angle += throttle * 100;
   if(sine_angle > 100663295) sine_angle -= 100663296;
-  update_svm(sine_angle, throttle);
+  update_svm(sine_angle, 4090);
 }
 
 int main() {
@@ -137,11 +134,9 @@ int main() {
     throttle = ADC3->DR;
 
     int n; for(n=0;n<20000;n++) nop();
-    uart_write_int(v1 * 100);
+    uart_write_int(torque);
     uart_write_string(",");
-    uart_write_int(f1);
-    uart_write_string(",");
-    uart_write_int(i1*1000);
+    uart_write_int(flux);
     uart_write_nl();
   }
   return(0);

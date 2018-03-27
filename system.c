@@ -90,7 +90,7 @@ void SystemInit() {
   // Wait a bit
   int n; for(n=0;n<100000;n++) nop();
 
-  // // Calibrate
+  // Calibrate
   // ADC1->CR |= ADC_CR_ADCAL;
   // ADC2->CR |= ADC_CR_ADCAL;
   // ADC3->CR |= ADC_CR_ADCAL;
