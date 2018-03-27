@@ -123,7 +123,7 @@ void SystemInit() {
   // TIM1
   RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
   TIM1->CR1 &= ~1;
-  TIM1->ARR = 16384;
+  TIM1->ARR = 8192;
   TIM1->CCR1 = 0;
   TIM1->CCR2 = 0;
   TIM1->CCR3 = 0;

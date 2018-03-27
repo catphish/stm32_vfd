@@ -37,44 +37,44 @@ void update_svm(uint32_t phase, uint32_t voltage)
   switch(sine_segment) {
   case 0:
     // 100 -> 110
-    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 8;
-    TIM1->CCR2 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 18;
+    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR2 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     TIM1->CCR3 = 0;
     break;
 
   case 1:
     // 110 -> 010
-    TIM1->CCR1 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 18;
-    TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 8;
+    TIM1->CCR1 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     TIM1->CCR3 = 0;
     break;
 
   case 2:
     // 010 -> 011
     TIM1->CCR1 = 0;
-    TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 8;
-    TIM1->CCR3 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 18;
+    TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR3 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     break;
 
   case 3:
     // 011 -> 001
     TIM1->CCR1 = 0;
-    TIM1->CCR2 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 18;
-    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 8;
+    TIM1->CCR2 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     break;
 
   case 4:
     // 001 -> 101
-    TIM1->CCR1 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 18;
+    TIM1->CCR1 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     TIM1->CCR2 = 0;
-    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 8;
+    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     break;
 
   case 5:
     // 101 -> 100
-    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 8;
+    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     TIM1->CCR2 = 0;
-    TIM1->CCR3 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 18;
+    TIM1->CCR3 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
     break;
   }
 }
@@ -107,7 +107,7 @@ void ADC1_2_IRQHandler(void) {
   // Calculate the instantaneous current and power.
   // TODO optimize compiler, especially here.
   current = sqrt(i1 * i1 + i2 * i2 + i3 * i3);
-  power = (v1 * i1 + v2 * i2 + v3 * i3) >> 15;
+  power = (v1 * i1 + v2 * i2 + v3 * i3) >> 14;
 
   // Adjust voltage to fit calculates power to target power.
   if (power > target_power) voltage -= 10;
@@ -120,8 +120,8 @@ void ADC1_2_IRQHandler(void) {
   // Work out V/Hz by multiplying the voltage by a Hz constant.
   // Subtract some voltage based on current to account for resistive losses.
 
-  // A multiple is 50 here is theoretically correct for my motor at 23V DC supply.
-  int increment = voltage * 50; // - current * 5;
+  // A multiple is 25 here is theoretically correct for my motor at 23V DC supply.
+  int increment = voltage * 25; // - current * 5;
 
   // Increment the output phase.
   sine_angle += increment;
