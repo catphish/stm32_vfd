@@ -14,7 +14,7 @@ void uart_write_string(char* str)
   }
 }
 
-void uart_write_uint(int32_t i) {
+void uart_write_int(int32_t i) {
   if (i < 0) {
     uart_write_byte('-');
     i = 0-i;

@@ -89,6 +89,17 @@ void SystemInit() {
   ADC3->CR = ADC_CR_ADVREGEN;
   // Wait a bit
   int n; for(n=0;n<100000;n++) nop();
+
+  // // Calibrate
+  // ADC1->CR |= ADC_CR_ADCAL;
+  // ADC2->CR |= ADC_CR_ADCAL;
+  // ADC3->CR |= ADC_CR_ADCAL;
+  // while(ADC1->CR & ADC_CR_ADCAL);
+  // while(ADC2->CR & ADC_CR_ADCAL);
+  // while(ADC3->CR & ADC_CR_ADCAL);
+  // // Wait a bit
+  // for(n=0;n<100000;n++) nop();
+
   // Enable procedure
   ADC1->ISR |= ADC_ISR_ADRDY;
   ADC1->CR |= ADC_CR_ADEN;
@@ -99,9 +110,15 @@ void SystemInit() {
   while(!(ADC1->ISR & ADC_ISR_ADRDY));
   while(!(ADC2->ISR & ADC_ISR_ADRDY));
   while(!(ADC3->ISR & ADC_ISR_ADRDY));
+  // Interrupts
+  ADC1->IER = ADC_IER_EOCIE;
 
-  // Oversampling (8x)
-  //ADC1->CFGR2 = (4<<5) | (3<<2) | 1;
+  // Oversampling (16x)
+  ADC1->CFGR2 = (3<<2) | 1;
+  ADC2->CFGR2 = (3<<2) | 1;
+  // ADC1->CFGR2 = (4<<5) | (3<<2) | 1;
+  // ADC2->CFGR2 = (4<<5) | (3<<2) | 1;
+  // ADC3->CFGR2 = (4<<5) | (3<<2) | 1;
 
   // TIM1
   RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
@@ -114,8 +131,14 @@ void SystemInit() {
   TIM1->CCMR2 = (6<<4);
   TIM1->CCER =  (1<<0)|(1<<4)|(1<<8); // Positive
   TIM1->CCER |= (1<<2)|(1<<6)|(1<<10); // Negative
+  // Interrupt on overflow
+  TIM1->DIER = TIM_DIER_UIE;
   // Dead time is defines as a multiple of the clock interval 12.5ns
   // 24 x 15.s = 300ns
   TIM1->BDTR = (1<<15) | 24;
   TIM1->CR1 |= 1;
+
+  // Global interrupt config
+  NVIC->ISER[0] = (1 << TIM1_UP_TIM16_IRQn) | (1 << ADC1_2_IRQn);
 }
+
