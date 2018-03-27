@@ -6,15 +6,13 @@
 #define nop()  __asm__ __volatile__ ("nop" ::)
 
 int sine_angle = 0;
-float fa=0, fb=0;
-float i1, i2, i3;
-float v1, v2, v3;
-float ia, ib;
-float va, vb;
-float torque;
-float flux;
+int v1, v2, v3;
+int i1, i2, i3;
+int target_power;
+int power = 0;
+int current = 0;
 int throttle = 0;
-int increment = 20616*10;
+int voltage = 0;
 
 void uart_write_string(char* str);
 void uart_write_int(int32_t i);
@@ -82,61 +80,75 @@ void update_svm(uint32_t phase, uint32_t voltage)
 }
 
 void TIM1_UP_TIM16_IRQHandler(void) {
-  // Start ADC conversions
+  // Start ADC conversions.
+  // TODO: Try to cause these 2 conversions to run for a
+  // significant portion of the PWM cycle.
   ADC1->SQR1 = (1<<6);
   ADC2->SQR1 = (2<<6);
-  //ADC3->SQR1 = (3<<6);
   ADC1->CR |= ADC_CR_ADSTART;
   ADC2->CR |= ADC_CR_ADSTART;
-  //ADC3->CR |= ADC_CR_ADSTART;
   TIM1->SR = ~TIM_SR_UIF;
 }
 
 void ADC1_2_IRQHandler(void) {
+  // Fetch current values
+  // TODO: Instead of waiting for 2 ADCs, use combined mode and trust the interrupt.
   while(ADC1->CR & ADC_CR_ADSTART);
   while(ADC2->CR & ADC_CR_ADSTART);
-  i1 = ((float)(ADC1->DR) - 31715) * 0.000190738f;
-  i2 = ((float)(ADC2->DR) - 31800) * 0.000190738f * 1.04;
+  i1 = ((float)ADC1->DR - 31715);
+  i2 = ((float)ADC2->DR - 31800) * 1.04f;
   i3 = 0 - i1 - i2;
 
-  v1 = 0.000460452f * ((float)TIM1->CCR1 + TIM1->CCR1 - TIM1->CCR2 - TIM1->CCR3);
-  v2 = 0.000460452f * ((float)TIM1->CCR2 + TIM1->CCR2 - TIM1->CCR1 - TIM1->CCR3);
-  v3 = 0.000460452f * ((float)TIM1->CCR3 + TIM1->CCR3 - TIM1->CCR1 - TIM1->CCR2);
+  // Fetch the voltages.
+  v1 = TIM1->CCR1 + TIM1->CCR1 - TIM1->CCR2 - TIM1->CCR3;
+  v2 = TIM1->CCR2 + TIM1->CCR2 - TIM1->CCR1 - TIM1->CCR3;
+  v3 = TIM1->CCR3 + TIM1->CCR3 - TIM1->CCR1 - TIM1->CCR2;
 
-  // Contol code here
+  // Calculate the instantaneous current and power.
+  // TODO optimize compiler, especially here.
+  current = sqrt(i1 * i1 + i2 * i2 + i3 * i3);
+  power = (v1 * i1 + v2 * i2 + v3 * i3) >> 15;
 
-  // Voltage clarke transform
-  va = v1 - (v2 + v3) * 0.5f;
-  vb = (v3 - v2) * 0.866025404f;
+  // Adjust voltage to fit calculates power to target power.
+  if (power > target_power) voltage -= 10;
+  if (power < target_power) voltage += 10;
+  if (voltage < 0) voltage = 0;
+  if (voltage > 4080) voltage = 4080;
 
-  // Current clarke transform
-  ia = i1 - (i2 + i3) * 0.5f;
-  ib = (i3 - i2) * 0.866025404f;
+  // TODO: We can do better V/Hz control if we measure the
+  // bus voltage too.
+  // Work out V/Hz by multiplying the voltage by a Hz constant.
+  // Subtract some voltage based on current to account for resistive losses.
 
-  // Flux integrator
-  fa *= 0.9995f; fa += va; fa -= ia*11;
-  fb *= 0.9995f; fb += vb; fb -= ib*11;
+  // A multiple is 50 here is theoretically correct for my motor at 23V DC supply.
+  int increment = voltage * 50; // - current * 5;
 
-  torque = fb * ia - fa * ib;
-  flux = sqrtf(fa * fa + fb * fb);
-  //fangle = (atan2(fa, fb) / M_PI) * 50331647 + 50331648;
-
-  sine_angle += throttle * 100;
+  // Increment the output phase.
+  sine_angle += increment;
   if(sine_angle > 100663295) sine_angle -= 100663296;
-  update_svm(sine_angle, 4090);
+  if(sine_angle < 0) sine_angle += 100663296;
+  // Output SVM using PWM.
+  update_svm(sine_angle, voltage);
 }
 
 int main() {
   ADC3->SQR1 = (4<<6);
   while (1) {
+    // Fetch throttle input.
     ADC3->CR |= ADC_CR_ADSTART;
     while(ADC3->CR & ADC_CR_ADSTART);
     throttle = ADC3->DR;
+    target_power = throttle;
 
+    // Debug output.
     int n; for(n=0;n<20000;n++) nop();
-    uart_write_int(torque);
+    uart_write_int(target_power);
     uart_write_string(",");
-    uart_write_int(flux);
+    uart_write_int(power);
+    uart_write_string(",");
+    uart_write_int(voltage);
+    uart_write_string(",");
+    uart_write_int(current);
     uart_write_nl();
   }
   return(0);
