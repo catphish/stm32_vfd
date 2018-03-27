@@ -16,8 +16,6 @@ float flux;
 int throttle = 0;
 int increment = 20616*10;
 
-unsigned long long int delay  = 100000;
-
 void uart_write_string(char* str);
 void uart_write_int(int32_t i);
 void uart_write_nl();
