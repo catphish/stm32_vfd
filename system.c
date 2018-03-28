@@ -7,6 +7,10 @@ void SystemInitError(uint8_t error_source) {
 }
 
 void SystemInit() {
+
+  // Enable FPU
+  SCB->CPACR |= 0xf00000;
+
   RCC->CR |= (1<<8);
   /* Wait until HSI ready */
   while ((RCC->CR & RCC_CR_HSIRDY) == 0);

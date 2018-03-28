@@ -121,7 +121,8 @@ void ADC1_2_IRQHandler(void) {
   // Subtract some voltage based on current to account for resistive losses.
 
   // A multiple is 25 here is theoretically correct for my motor at 23V DC supply.
-  int increment = voltage * 25; // - current * 5;
+  int increment = voltage * 25 - 1000 * 25;
+  if(increment < 0) increment = 0;
 
   // Increment the output phase.
   sine_angle += increment;
