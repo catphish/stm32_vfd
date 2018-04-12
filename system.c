@@ -6,6 +6,8 @@ void SystemInitError(uint8_t error_source) {
   while(1);
 }
 
+extern uint32_t adc_data[];
+
 void SystemInit() {
 
   // Enable FPU
@@ -56,16 +58,14 @@ void SystemInit() {
   // B13,B14,B15 -> TIM1
   GPIOB->AFR[1] &= ~(GPIO_AFRH_AFSEL13_Msk|GPIO_AFRH_AFSEL14_Msk|GPIO_AFRH_AFSEL15_Msk);
   GPIOB->AFR[1] |= GPIO_AFRH_AFSEL13_0 | GPIO_AFRH_AFSEL14_0 | GPIO_AFRH_AFSEL15_0;
-  // C0,C1,C2,C3 -> ADC1
-  GPIOC->AFR[0] &= ~(GPIO_AFRL_AFSEL0_Msk|GPIO_AFRL_AFSEL1_Msk|GPIO_AFRL_AFSEL2_Msk|GPIO_AFRL_AFSEL3_Msk);
-  GPIOC->AFR[0] |= GPIO_AFRH_AFSEL13_0 | GPIO_AFRH_AFSEL14_0 | GPIO_AFRH_AFSEL15_0;
   // PORTA Modes
   GPIOA->MODER = 0xABEAFFEF;
+  GPIOA->ASCR = 0x3; // ADC
   // PORTB Modes
   GPIOB->MODER = 0xABFFFFFF;
   // PORTC Modes
   GPIOC->MODER = 0xFFFFFFFF;
-  GPIOC->ASCR = 0xF;
+  GPIOC->ASCR = 0xF; // ADC
 
   // Enable USART2 clock
   RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
@@ -79,28 +79,44 @@ void SystemInit() {
   // Enable transmit
   USART2->CR1 |= USART_CR1_TE;
 
+  // DMA for ADC1
+  RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN; // DMA1
+  // Wait a bit
+  nop(); nop(); nop(); nop(); nop(); nop();
+  DMA1_Channel1->CPAR = (uint32_t)&(ADC123_COMMON->CDR);
+  DMA1_Channel1->CMAR = (uint32_t)&adc_data;
+  DMA1_Channel1->CNDTR = 2;
+  DMA1_Channel1->CCR = DMA_CCR_MSIZE_1 | DMA_CCR_PSIZE_1 | DMA_CCR_MINC |
+                       DMA_CCR_CIRC | DMA_CCR_TCIE | DMA_CCR_EN;
+
   // ADC123
   RCC->AHB2ENR |= RCC_AHB2ENR_ADCEN;
   // Connect to system clock
   RCC->CCIPR |= RCC_CCIPR_ADCSEL_0 | RCC_CCIPR_ADCSEL_1;
   // Divide clock (/8)
-  ADC123_COMMON->CCR |= (4<<18);
+  ADC123_COMMON->CCR |= ADC_CCR_PRESC_2;
+  // Dual mode
+  ADC123_COMMON->CCR |= ADC_CCR_DUAL_1 | ADC_CCR_DUAL_2;
+  // MDMA
+  ADC123_COMMON->CCR |= ADC_CCR_MDMA_1;
 
-  // ADC1+2+3
+  // ADC1+2
   // Disable DEEPPWD, enable ADVREGEN
   ADC1->CR = ADC_CR_ADVREGEN;
   ADC2->CR = ADC_CR_ADVREGEN;
-  ADC3->CR = ADC_CR_ADVREGEN;
+
   // Wait a bit
   int n; for(n=0;n<100000;n++) nop();
+
+  // Configure ADC1/2 IN5 for differential input
+  ADC1->DIFSEL |= (1<<5);
+  ADC2->DIFSEL |= (1<<5);
 
   // Calibrate
   // ADC1->CR |= ADC_CR_ADCAL;
   // ADC2->CR |= ADC_CR_ADCAL;
-  // ADC3->CR |= ADC_CR_ADCAL;
   // while(ADC1->CR & ADC_CR_ADCAL);
   // while(ADC2->CR & ADC_CR_ADCAL);
-  // while(ADC3->CR & ADC_CR_ADCAL);
   // // Wait a bit
   // for(n=0;n<100000;n++) nop();
 
@@ -109,20 +125,16 @@ void SystemInit() {
   ADC1->CR |= ADC_CR_ADEN;
   ADC2->ISR |= ADC_ISR_ADRDY;
   ADC2->CR |= ADC_CR_ADEN;
-  ADC3->ISR |= ADC_ISR_ADRDY;
-  ADC3->CR |= ADC_CR_ADEN;
   while(!(ADC1->ISR & ADC_ISR_ADRDY));
   while(!(ADC2->ISR & ADC_ISR_ADRDY));
-  while(!(ADC3->ISR & ADC_ISR_ADRDY));
-  // Interrupts
-  ADC1->IER = ADC_IER_EOCIE;
+
+  // Sequence
+  ADC1->SQR1 = (1<<6) | (5<<12) | 1;
+  ADC2->SQR1 = (2<<6) | (4<<12) | 1;
 
   // Oversampling (16x)
-  ADC1->CFGR2 = (3<<2) | 1;
-  ADC2->CFGR2 = (3<<2) | 1;
-  // ADC1->CFGR2 = (4<<5) | (3<<2) | 1;
-  // ADC2->CFGR2 = (4<<5) | (3<<2) | 1;
-  // ADC3->CFGR2 = (4<<5) | (3<<2) | 1;
+  // ADC1->CFGR2 = (3<<2) | 1;
+  // ADC2->CFGR2 = (3<<2) | 1;
 
   // TIM1
   RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
@@ -143,6 +155,7 @@ void SystemInit() {
   TIM1->CR1 |= 1;
 
   // Global interrupt config
-  NVIC->ISER[0] = (1 << TIM1_UP_TIM16_IRQn) | (1 << ADC1_2_IRQn);
+  //NVIC->ISER[0] = (1 << TIM1_UP_TIM16_IRQn);
+  NVIC->ISER[0] = (1 << DMA1_Channel1_IRQn);
 }
 
