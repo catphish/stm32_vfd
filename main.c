@@ -5,6 +5,7 @@
 
 #define nop()  __asm__ __volatile__ ("nop" ::)
 
+uint16_t adc_data[4];
 int sine_angle = 0;
 int v1, v2, v3;
 int i1, i2, i3;
@@ -17,7 +18,6 @@ int voltage = 0;
 void uart_write_string(char* str);
 void uart_write_int(int32_t i);
 void uart_write_nl();
-
 
 // Phase should rotate from 0 - (2^24)*6-1
 // Voltage should be 0 - 2^12-1
@@ -38,72 +38,66 @@ void update_svm(uint32_t phase, uint32_t voltage)
   switch(sine_segment) {
   case 0:
     // 100 -> 110
-    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     TIM1->CCR2 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
-    TIM1->CCR3 = 0;
+    TIM1->CCR1 = 0;
     break;
 
   case 1:
     // 110 -> 010
-    TIM1->CCR1 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR3 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
     TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 9;
-    TIM1->CCR3 = 0;
+    TIM1->CCR1 = 0;
     break;
 
   case 2:
     // 010 -> 011
-    TIM1->CCR1 = 0;
+    TIM1->CCR3 = 0;
     TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 9;
-    TIM1->CCR3 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR1 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     break;
 
   case 3:
     // 011 -> 001
-    TIM1->CCR1 = 0;
+    TIM1->CCR3 = 0;
     TIM1->CCR2 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
-    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     break;
 
   case 4:
     // 001 -> 101
-    TIM1->CCR1 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR3 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     TIM1->CCR2 = 0;
-    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     break;
 
   case 5:
     // 101 -> 100
-    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     TIM1->CCR2 = 0;
-    TIM1->CCR3 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR1 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
     break;
   }
 }
 
-uint16_t adc_data[4];
 void DMA1_Channel1_IRQHandler(void) {
-  // Debug output
-  uart_write_int(adc_data[0]);
-  uart_write_string(",");
-  uart_write_int(adc_data[1]);
-  uart_write_string(",");
-  uart_write_int(adc_data[2]);
-  uart_write_string(",");
-  uart_write_int(adc_data[3]);
-  uart_write_nl();
-  ADC1->CR |= ADC_CR_ADSTART;
+  i1 = adc_data[0] - 31630;
+  i2 = adc_data[1] - 31795;
+  i3 = 0 - i1 - i2;
+
+  sine_angle += 10308 * 5;
+  if(sine_angle > 100663295) sine_angle -= 100663296;
+  if(sine_angle < 0) sine_angle += 100663296;
+  // Output SVM using PWM.
+  update_svm(sine_angle, 4095);
+  DMA1->IFCR = 0xFFFFFFFF;
 }
 
-// void TIM1_UP_TIM16_IRQHandler(void) {
-//   // Start ADC conversions.
-//   // TODO: Try to cause these 2 conversions to run for a
-//   // significant portion of the PWM cycle.
-//   ADC1->SQR1 = (1<<6);
-//   ADC2->SQR1 = (2<<6);
-//   ADC1->CR |= ADC_CR_ADSTART;
-//   ADC2->CR |= ADC_CR_ADSTART;
-//   TIM1->SR = ~TIM_SR_UIF;
-// }
+void TIM1_UP_TIM16_IRQHandler(void) {
+  // Start ADC conversions.
+  ADC1->CR |= ADC_CR_ADSTART;
+  TIM1->SR = ~TIM_SR_UIF;
+}
 
 // void ADC1_2_IRQHandler(void) {
 //   // Fetch current values
@@ -148,6 +142,13 @@ void DMA1_Channel1_IRQHandler(void) {
 // }
 
 int main() {
-  ADC1->CR |= ADC_CR_ADSTART;
-  while(1);
+  while(1) {
+    // Debug output
+    uart_write_int(i1);
+    uart_write_string(",");
+    uart_write_int(i2);
+    uart_write_string(",");
+    uart_write_int(i3);
+    uart_write_nl();
+  }
 }
