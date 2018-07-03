@@ -6,14 +6,11 @@
 #define nop()  __asm__ __volatile__ ("nop" ::)
 
 uint16_t adc_data[4];
+
 int sine_angle = 0;
-int v1, v2, v3;
-int i1, i2, i3;
-int target_power;
-int power = 0;
-int current = 0;
-int throttle = 0;
-int voltage = 0;
+int frequency = 1;
+
+float i1, i2, total_current;
 
 void uart_write_string(char* str);
 void uart_write_int(int32_t i);
@@ -80,75 +77,57 @@ void update_svm(uint32_t phase, uint32_t voltage)
   }
 }
 
+// This runs at 80000000/8192 = 9765.625Hz
 void DMA1_Channel1_IRQHandler(void) {
-  i1 = adc_data[0] - 31630;
-  i2 = adc_data[1] - 31795;
-  i3 = 0 - i1 - i2;
+  i1 = (adc_data[0] - 31710)/5242.88;
+  i2 = (adc_data[1] - 31795)/5242.88;
 
-  sine_angle += 10308 * 5;
+  // Calculate instantaneous total current
+  total_current = sqrtf(2*(i1*i1+i2*i2+i1*i2));
+
+  // Calculate fixed voltage drop based on current and known resistance (8 ohm)
+  // Scale RMS to peak voltage
+  float resistive_waste = (total_current / 3 * sqrt(2)) * 8;
+
+  // 10308 = 1Hz
+  frequency = 10308 * 5;
+  int voltage = 4000;
+
+  // Increment angle
+  sine_angle += frequency;
   if(sine_angle > 100663295) sine_angle -= 100663296;
   if(sine_angle < 0) sine_angle += 100663296;
+
   // Output SVM using PWM.
-  update_svm(sine_angle, 4095);
+  update_svm(sine_angle, voltage);
   DMA1->IFCR = 0xFFFFFFFF;
 }
 
 void TIM1_UP_TIM16_IRQHandler(void) {
-  // Start ADC conversions.
+  // Start ADC conversions after each PWM refresh
   ADC1->CR |= ADC_CR_ADSTART;
   TIM1->SR = ~TIM_SR_UIF;
 }
 
-// void ADC1_2_IRQHandler(void) {
-//   // Fetch current values
-//   // TODO: Instead of waiting for 2 ADCs, use combined mode and trust the interrupt.
-//   while(ADC1->CR & ADC_CR_ADSTART);
-//   while(ADC2->CR & ADC_CR_ADSTART);
-//   i1 = ((float)ADC1->DR - 31715);
-//   i2 = ((float)ADC2->DR - 31800) * 1.04f;
-//   i3 = 0 - i1 - i2;
-
-//   // Fetch the voltages.
-//   v1 = TIM1->CCR1 + TIM1->CCR1 - TIM1->CCR2 - TIM1->CCR3;
-//   v2 = TIM1->CCR2 + TIM1->CCR2 - TIM1->CCR1 - TIM1->CCR3;
-//   v3 = TIM1->CCR3 + TIM1->CCR3 - TIM1->CCR1 - TIM1->CCR2;
-
-//   // Calculate the instantaneous current and power.
-//   // TODO optimize compiler, especially here.
-//   current = sqrt(i1 * i1 + i2 * i2 + i3 * i3);
-//   power = (v1 * i1 + v2 * i2 + v3 * i3) >> 14;
-
-//   // Adjust voltage to fit calculates power to target power.
-//   if (power > target_power) voltage -= 10;
-//   if (power < target_power) voltage += 10;
-//   if (voltage < 0) voltage = 0;
-//   if (voltage > 4080) voltage = 4080;
-
-//   // TODO: We can do better V/Hz control if we measure the
-//   // bus voltage too.
-//   // Work out V/Hz by multiplying the voltage by a Hz constant.
-//   // Subtract some voltage based on current to account for resistive losses.
-
-//   // A multiple is 25 here is theoretically correct for my motor at 23V DC supply.
-//   int increment = voltage * 25 - 1000 * 25;
-//   if(increment < 0) increment = 0;
-
-//   // Increment the output phase.
-//   sine_angle += increment;
-//   if(sine_angle > 100663295) sine_angle -= 100663296;
-//   if(sine_angle < 0) sine_angle += 100663296;
-//   // Output SVM using PWM.
-//   update_svm(sine_angle, voltage);
-// }
-
 int main() {
   while(1) {
     // Debug output
-    uart_write_int(i1);
-    uart_write_string(",");
-    uart_write_int(i2);
-    uart_write_string(",");
-    uart_write_int(i3);
-    uart_write_nl();
+     uart_write_int(i1*1000);
+     uart_write_string(",");
+     uart_write_int(i2*1000);
+     uart_write_string(",");
+     uart_write_int(total_current*1000);
+     //uart_write_string(",");
+     //uart_write_int(adc_data[3]);
+    // uart_write_int(i3);
+    // uart_write_string(",");
+    // uart_write_int(iangle);
+    // uart_write_string(",");
+    // uart_write_int(vangle);
+    // uart_write_string(",");
+    // uart_write_int(i3);
+     uart_write_nl();
+     int n; for(n=0;n<1000000;n++) nop();
+
   }
 }

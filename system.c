@@ -11,7 +11,7 @@ extern volatile uint32_t adc_data[];
 void SystemInit() {
 
   // Enable FPU
-  //SCB->CPACR |= 0xf00000;
+  SCB->CPACR |= 0xf00000;
 
   RCC->CR |= (1<<8);
   /* Wait until HSI ready */
@@ -49,6 +49,7 @@ void SystemInit() {
   RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
   // Enable GPIOC clock
   RCC->AHB2ENR |= RCC_AHB2ENR_GPIOCEN;
+
   // A2 -> USART2_TX
   GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL2_Msk;
   GPIOA->AFR[0] |= GPIO_AFRL_AFSEL2_0 | GPIO_AFRL_AFSEL2_1 | GPIO_AFRL_AFSEL2_2;
@@ -58,9 +59,9 @@ void SystemInit() {
   // B13,B14,B15 -> TIM1
   GPIOB->AFR[1] &= ~(GPIO_AFRH_AFSEL10_Msk|GPIO_AFRH_AFSEL11_Msk|GPIO_AFRH_AFSEL13_Msk|GPIO_AFRH_AFSEL14_Msk|GPIO_AFRH_AFSEL15_Msk);
   GPIOB->AFR[1] |= GPIO_AFRH_AFSEL10_0 | GPIO_AFRH_AFSEL11_0 | GPIO_AFRH_AFSEL13_0 | GPIO_AFRH_AFSEL14_0 | GPIO_AFRH_AFSEL15_0;
+
   // PORTA Modes
   GPIOA->MODER = 0xABEAFFEF;
-  GPIOA->ASCR = 0x3; // ADC
   // PORTB Modes
   GPIOB->MODER = 0xABAFFFFF;
   // PORTC Modes
@@ -100,7 +101,7 @@ void SystemInit() {
   // MDMA
   ADC123_COMMON->CCR |= ADC_CCR_MDMA_1;
 
-  // ADC1+2
+  // ADC1+2+3
   // Disable DEEPPWD, enable ADVREGEN
   ADC1->CR = ADC_CR_ADVREGEN;
   ADC2->CR = ADC_CR_ADVREGEN;
@@ -109,8 +110,8 @@ void SystemInit() {
   int n; for(n=0;n<100000;n++) nop();
 
   // Configure ADC1/2 IN5 for differential input
-  ADC1->DIFSEL |= (1<<5);
-  ADC2->DIFSEL |= (1<<5);
+  //ADC1->DIFSEL |= (1<<5);
+  //ADC2->DIFSEL |= (1<<5);
 
   // Calibrate
   // ADC1->CR |= ADC_CR_ADCAL;
@@ -129,8 +130,10 @@ void SystemInit() {
   while(!(ADC2->ISR & ADC_ISR_ADRDY));
 
   // Sequence
-  ADC1->SQR1 = (1<<6) | (5<<12) | 1;
+  ADC1->SQR1 = (1<<6) | (3<<12) | 1;
   ADC2->SQR1 = (2<<6) | (4<<12) | 1;
+  //ADC1->SMPR1 = (3<<0) | (3<<1) | (3<<2);
+  //ADC2->SMPR1 = (3<<0) | (3<<1) | (3<<2);
 
   // Oversampling (16x)
   ADC1->CFGR2 = (3<<2) | 1;
@@ -154,16 +157,6 @@ void SystemInit() {
   //TIM1->BDTR = (1<<15) | 24;
   TIM1->BDTR = (1<<15) | 5;
   TIM1->CR1 |= 1;
-
-  // TIM2
-  RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;
-  TIM2->CR1 &= ~1;
-  TIM2->ARR = 8192;
-  TIM2->CCR3 = 0;
-  TIM2->CCR4 = 0;
-  TIM2->CCMR2 = (6<<12)|(6<<4);
-  TIM2->CCER  = (1<<8)|(1<<12);  // Positive
-  TIM2->CR1 |= 1;
 
   // Global interrupt config
   NVIC->ISER[0] = (1 << TIM1_UP_TIM16_IRQn) | (1 << DMA1_Channel1_IRQn);
