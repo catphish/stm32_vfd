@@ -3,21 +3,18 @@
 #include <math.h>
 
 #define nop()  __asm__ __volatile__ ("nop" ::)
-#define PI 3.14159265
-#define PI31 1.04719755
-#define PI32 2.0943951
-#define PI34 4.1887902
+#define PI 3.14159265f
 
 uint16_t adc_data[4];
 
 int angle = 0;
 
-float i1t, i2t, i3t;
-float i1, i2, i3;
-float v1, v2, v3;
-float ia, ib, va, vb;
-float vd, vq, id, iq;
-float ccr1, ccr2, ccr3;
+int segment;
+int a, b, c;
+int v1, v2;
+float i1, i2;
+float ia, ib;
+float va, vb;
 float fa, fb;
 float flux, torque;
 float iangle;
@@ -30,42 +27,9 @@ void set_inverter_state(float angle) {
 
 }
 
-// void output_svm() {
-//   float bottom_line;
-//   // Offset and scale the sine waves to maximize voltage
-//   if(v1 <= v2) {
-//     if (v1 <= v3) {
-//       bottom_line = v1;
-//     } else {
-//       bottom_line = v3;
-//     }
-//   } else {
-//     if (v3 <= v2) {
-//       bottom_line = v3;
-//     } else {
-//       bottom_line = v2;
-//     }
-//   }
-
-//   ccr1 = (v1 - bottom_line) * 4096;
-//   ccr2 = (v2 - bottom_line) * 4096;
-//   ccr3 = (v3 - bottom_line) * 4096;
-
-//   TIM1->CCR1 = ccr1;
-//   TIM1->CCR2 = ccr2;
-//   TIM1->CCR3 = ccr3;
-// }
-
 // This runs at 80000000/8192 = 9765.625Hz
 void DMA1_Channel1_IRQHandler(void) {
 
-  // fa += va - ia;
-  // fb += vb - ib;
-  // fa *= 0.998;
-  // fb *= 0.998;
-
-  // flux = sqrtf(fa*fa+fb*fb);
-  // torque = fa*ib-fb*ia;
 
   // // Increment angle manually at 10Hz
   // angle += (10*2*PI/9765.625);
@@ -85,54 +49,66 @@ void DMA1_Channel1_IRQHandler(void) {
 
   // output_svm();
 
-  angle += 20;
-  if(angle > 62833) angle -= 62833;
+  i1 = (adc_data[0] - 2048 - 4) * 6.1f;
+  i2 = (adc_data[1] - 2048)     * 6.1f;
+  ia = i1;
+  ib = 0.577350269f * i1 + 1.154700538f * i2;
 
-    i1 = (adc_data[0] - 2048 - 4);
-    i2 = (adc_data[1] - 2048);
-    i3 = 0 - i1 - i2;
-    // va = v1;
-    // vb = 0.577350269 * v1 + 1.154700538 * v2;
-    //ia = i1;
-    //ib = 0.577350269 * i1 + 1.154700538 * i2;
-    //iangle = atan2f(ib, ia);
+  va = v1;
+  vb = 0.577350269f * v1 + 1.154700538f * v2;
 
-    i1t = 200 * sinf((float)angle/10000);
-    i2t = 200 * sinf((float)angle/10000 + PI32);
-    i3t = 200 * sinf((float)angle/10000 + PI34);
+  fa += va - ia;
+  fb += vb - ib;
+  fa *= 0.999f;
+  fb *= 0.999f;
 
-    if(i1 < i1t - 10) {
-      GPIOA->BSRR = (1<<8);
-      GPIOB->BSRR = (1<<29);
-    } else if (i1 > i1t + 10) {
-      GPIOA->BSRR = (1<<24);
-      GPIOB->BSRR = (1<<13);
-    } else {
-      GPIOA->BSRR = (1<<24);
-      GPIOB->BSRR = (1<<29);
-    }
+  flux = sqrtf(fa*fa+fb*fb);
+  torque = fa*ib-fb*ia;
 
-    if(i2 < i2t - 10) {
-      GPIOA->BSRR = (1<<9);
-      GPIOB->BSRR = (1<<30);
-    } else if (i2 > i2t + 10) {
-      GPIOA->BSRR = (1<<25);
-      GPIOB->BSRR = (1<<14);
-    } else {
-      GPIOA->BSRR = (1<<25);
-      GPIOB->BSRR = (1<<30);
-    }
+  iangle = atan2f(ib, ia);
+//iangle += 0.001;
+//if(iangle > PI) iangle-=2*PI;
+#define FLUX 200000
+#define TORQUE 100000
 
-    if(i3 < i3t - 10) {
-      GPIOA->BSRR = (1<<10);
-      GPIOB->BSRR = (1<<31);
-    } else if (i3 > i3t + 10) {
-      GPIOA->BSRR = (1<<26);
-      GPIOB->BSRR = (1<<15);
-    } else {
-      GPIOA->BSRR = (1<<26);
-      GPIOB->BSRR = (1<<31);
-    }
+  int vector;
+  if(iangle > PI*5.0f/6.0f || iangle < PI*-5.0f/6.0f) {
+    segment = 4;
+  } else if(iangle < PI*-3.0f/6.0f) {
+    segment = 5;
+  } else if(iangle < PI*-1.0f/6.0f) {
+    segment = 6;
+  } else if(iangle > PI*3.0f/6.0f) {
+    segment = 3;
+  } else if(iangle > PI*1.0f/6.0f) {
+    segment = 2;
+  } else {
+    segment = 1;
+  }
+  if(flux < FLUX) {
+    if(torque < TORQUE) vector = segment + 1;
+    else vector = segment - 1;
+  } else {
+    if(torque < TORQUE) vector = segment + 2;
+    else vector = segment - 2;
+  }
+  if(vector < 1) vector += 6;
+  if(vector > 6) vector -= 6;
+
+  switch(vector) {
+    case 1 : a=1;b=0;c=0; break;
+    case 2 : a=1;b=1;c=0; break;
+    case 3 : a=0;b=1;c=0; break;
+    case 4 : a=0;b=1;c=1; break;
+    case 5 : a=0;b=0;c=1; break;
+    case 6 : a=1;b=0;c=1; break;
+  }
+
+  v1 = (a+a-b-c)*1000;
+  v2 = (b+b-a-c)*1000;
+
+  GPIOA->ODR = (a<<8)|(b<<9)|(c<<10);
+  GPIOB->ODR = ((!a)<<13)|((!b)<<14)|((!c)<<15);
 
   DMA1->IFCR = 0xFFFFFFFF;
 
@@ -147,19 +123,10 @@ void DMA1_Channel1_IRQHandler(void) {
 int main() {
   ADC1->CR |= ADC_CR_ADSTART;
   while(1) {
-
     // Debug output
-    uart_write_int(i1*1000);
+    uart_write_int(flux);
     uart_write_string(",");
-    uart_write_int(i2*1000);
-    uart_write_string(",");
-    uart_write_int(i3*1000);
-    uart_write_string(",");
-    uart_write_int(i1t*1000);
-    uart_write_string(",");
-    uart_write_int(i2t*1000);
-    uart_write_string(",");
-    uart_write_int(i3t*1000);
+    uart_write_int(torque);
     uart_write_nl();
     int n; for(n=0;n<10000;n++) nop();
   }
