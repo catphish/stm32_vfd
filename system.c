@@ -73,8 +73,8 @@ void SystemInit() {
   // Disable USART2
   USART2->CR1 = 0;
   // Set data rate
-  //USART2->BRR = 694; //115200
-  USART2->BRR = 80; //1M
+  USART2->BRR = 694; //115200
+  //USART2->BRR = 80; //1M
   // Enable USART2
   USART2->CR1 |= USART_CR1_UE;
   // Enable transmit
@@ -114,12 +114,12 @@ void SystemInit() {
   //ADC2->DIFSEL |= (1<<5);
 
   // Calibrate
-  ADC1->CR |= ADC_CR_ADCAL;
-  ADC2->CR |= ADC_CR_ADCAL;
-  while(ADC1->CR & ADC_CR_ADCAL);
-  while(ADC2->CR & ADC_CR_ADCAL);
-  // Wait a bit
-  for(n=0;n<100000;n++) nop();
+  // ADC1->CR |= ADC_CR_ADCAL;
+  // ADC2->CR |= ADC_CR_ADCAL;
+  // while(ADC1->CR & ADC_CR_ADCAL);
+  // while(ADC2->CR & ADC_CR_ADCAL);
+  // // Wait a bit
+  // for(n=0;n<100000;n++) nop();
 
   // Enable procedure
   ADC1->ISR |= ADC_ISR_ADRDY;
