@@ -7,10 +7,10 @@
 
 uint16_t adc_data[4];
 
-int sine_angle = 0;
-int frequency = 1;
+int angle = 0;
+int frequency = 0;
 
-float i1, i2, total_current;
+float i1, i2;
 
 void uart_write_string(char* str);
 void uart_write_int(int32_t i);
@@ -79,15 +79,8 @@ void update_svm(uint32_t phase, uint32_t voltage)
 
 // This runs at 80000000/8192 = 9765.625Hz
 void DMA1_Channel1_IRQHandler(void) {
-  i1 = (adc_data[0] - 31710)/5242.88;
-  i2 = (adc_data[1] - 31795)/5242.88;
-
-  // Calculate instantaneous total current
-  total_current = sqrtf(2*(i1*i1+i2*i2+i1*i2));
-
-  // Calculate fixed voltage drop based on current and known resistance (8 ohm)
-  // Scale RMS to peak voltage
-  float resistive_waste = (total_current / 3 * sqrt(2)) * 8;
+  i1 = adc_data[0] - 32840;
+  i2 = adc_data[1] - 32840;
 
   // 10308 = 1Hz
   frequency = 10308 * 5;
@@ -115,19 +108,8 @@ int main() {
      uart_write_int(i1*1000);
      uart_write_string(",");
      uart_write_int(i2*1000);
-     uart_write_string(",");
-     uart_write_int(total_current*1000);
-     //uart_write_string(",");
-     //uart_write_int(adc_data[3]);
-    // uart_write_int(i3);
-    // uart_write_string(",");
-    // uart_write_int(iangle);
-    // uart_write_string(",");
-    // uart_write_int(vangle);
-    // uart_write_string(",");
-    // uart_write_int(i3);
      uart_write_nl();
-     int n; for(n=0;n<1000000;n++) nop();
+     int n; for(n=0;n<10000;n++) nop();
 
   }
 }

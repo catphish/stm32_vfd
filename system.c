@@ -73,8 +73,8 @@ void SystemInit() {
   // Disable USART2
   USART2->CR1 = 0;
   // Set data rate
-  USART2->BRR = 694; //115200
-  //USART2->BRR = 80; //1M
+  //USART2->BRR = 694; //115200
+  USART2->BRR = 80; //1M
   // Enable USART2
   USART2->CR1 |= USART_CR1_UE;
   // Enable transmit
@@ -113,13 +113,13 @@ void SystemInit() {
   //ADC1->DIFSEL |= (1<<5);
   //ADC2->DIFSEL |= (1<<5);
 
-  // Calibrate
-  // ADC1->CR |= ADC_CR_ADCAL;
-  // ADC2->CR |= ADC_CR_ADCAL;
-  // while(ADC1->CR & ADC_CR_ADCAL);
-  // while(ADC2->CR & ADC_CR_ADCAL);
-  // // Wait a bit
-  // for(n=0;n<100000;n++) nop();
+  Calibrate
+  ADC1->CR |= ADC_CR_ADCAL;
+  ADC2->CR |= ADC_CR_ADCAL;
+  while(ADC1->CR & ADC_CR_ADCAL);
+  while(ADC2->CR & ADC_CR_ADCAL);
+  // Wait a bit
+  for(n=0;n<100000;n++) nop();
 
   // Enable procedure
   ADC1->ISR |= ADC_ISR_ADRDY;
@@ -132,8 +132,6 @@ void SystemInit() {
   // Sequence
   ADC1->SQR1 = (1<<6) | (3<<12) | 1;
   ADC2->SQR1 = (2<<6) | (4<<12) | 1;
-  //ADC1->SMPR1 = (3<<0) | (3<<1) | (3<<2);
-  //ADC2->SMPR1 = (3<<0) | (3<<1) | (3<<2);
 
   // Oversampling (16x)
   ADC1->CFGR2 = (3<<2) | 1;
