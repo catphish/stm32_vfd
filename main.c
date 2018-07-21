@@ -35,44 +35,44 @@ void update_svm(uint32_t phase, uint32_t voltage)
   switch(sine_segment) {
   case 0:
     // 100 -> 110
-    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     TIM1->CCR2 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
-    TIM1->CCR1 = 0;
+    TIM1->CCR3 = 0;
     break;
 
   case 1:
     // 110 -> 010
-    TIM1->CCR3 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR1 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
     TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 9;
-    TIM1->CCR1 = 0;
+    TIM1->CCR3 = 0;
     break;
 
   case 2:
     // 010 -> 011
-    TIM1->CCR3 = 0;
+    TIM1->CCR1 = 0;
     TIM1->CCR2 = ((voltage+1) * table[sine_angle] - 1) >> 9;
-    TIM1->CCR1 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR3 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     break;
 
   case 3:
     // 011 -> 001
-    TIM1->CCR3 = 0;
+    TIM1->CCR1 = 0;
     TIM1->CCR2 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
-    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     break;
 
   case 4:
     // 001 -> 101
-    TIM1->CCR3 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR1 = ((sine_angle + 1) * (voltage+1) * table[sine_angle] - 1) >> 19;
     TIM1->CCR2 = 0;
-    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     break;
 
   case 5:
     // 101 -> 100
-    TIM1->CCR3 = ((voltage+1) * table[sine_angle] - 1) >> 9;
+    TIM1->CCR1 = ((voltage+1) * table[sine_angle] - 1) >> 9;
     TIM1->CCR2 = 0;
-    TIM1->CCR1 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
+    TIM1->CCR3 = ((1024 - sine_angle) * (voltage+1) * table[sine_angle] - 1) >> 19;
     break;
   }
 }
