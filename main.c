@@ -87,12 +87,12 @@ void DMA1_Channel1_IRQHandler(void) {
   int voltage = 4000;
 
   // Increment angle
-  sine_angle += frequency;
-  if(sine_angle > 100663295) sine_angle -= 100663296;
-  if(sine_angle < 0) sine_angle += 100663296;
+  angle += frequency;
+  if(angle > 100663295) angle -= 100663296;
+  if(angle < 0) angle += 100663296;
 
   // Output SVM using PWM.
-  update_svm(sine_angle, voltage);
+  update_svm(angle, voltage);
   DMA1->IFCR = 0xFFFFFFFF;
 }
 

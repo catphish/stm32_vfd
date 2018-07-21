@@ -113,7 +113,7 @@ void SystemInit() {
   //ADC1->DIFSEL |= (1<<5);
   //ADC2->DIFSEL |= (1<<5);
 
-  Calibrate
+  // Calibrate
   ADC1->CR |= ADC_CR_ADCAL;
   ADC2->CR |= ADC_CR_ADCAL;
   while(ADC1->CR & ADC_CR_ADCAL);
