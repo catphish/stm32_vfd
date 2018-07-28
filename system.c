@@ -78,8 +78,8 @@ void SystemInit() {
   // Disable USART2
   USART2->CR1 = 0;
   // Set data rate
-  //USART2->BRR = 694; //115200
-  USART2->BRR = 80; //1M
+  USART2->BRR = 694; //115200
+  //USART2->BRR = 80; //1M
   // Enable USART2
   USART2->CR1 |= USART_CR1_UE;
   // Enable transmit
@@ -165,7 +165,7 @@ void SystemInit() {
   GPIOA->PUPDR = 1 | 1<<2;
   RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;
   TIM2->SMCR = 3; // Encoder mode 3
-  TIM2->CCMR1 = 1 | (1<<8);
+  TIM2->CCMR1 = 1 | (1<<8) | (3<<4) | (3<<12);
   TIM2->CCER  = TIM_CCER_CC1E | TIM_CCER_CC2E;
   TIM2->CR1 |= 1;
 
