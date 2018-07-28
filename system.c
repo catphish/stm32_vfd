@@ -10,6 +10,9 @@ extern volatile uint32_t adc_data[];
 
 void SystemInit() {
 
+  // Setup procedure.
+  // Warning: this is not 100% documented and contains some unexplained values
+
   // Enable FPU
   SCB->CPACR |= 0xf00000;
 
