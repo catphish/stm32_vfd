@@ -11,25 +11,21 @@
 int start_time, end_time;
 
 // Debug
-int id_dbg, iq_dbg;
-int flux_angle_dbg;
+int id_debug, iq_debug;
+int vd_debug, vq_debug;
 
 // Analog to digital converter DMA data
 uint16_t adc_data[4];
 
-// For hard coded run loop
-int angle = 0;
-
-// For flux estimator
-float imag;
-float flux_angle;
-int rotor_direction;
-uint32_t encoder_position_previous;
+// Motor parameters
 const float loop_period = 0.0001024f;
 const float time_constant = 0.05f;
 const float pole_pairs = 2.0f;
 
-// For FOC
+// For flux estimator / FOC
+float imag;
+float flux_angle;
+uint32_t encoder_position_previous;
 float vd, vq;
 
 // This runs at the PWM frequency: 9765.625Hz
@@ -53,6 +49,7 @@ void DMA1_Channel1_IRQHandler(void) {
   uint32_t encoder_position_current = TIM2->CNT;
   int encoder_position_change = encoder_position_current - encoder_position_previous;
   encoder_position_previous = encoder_position_current;
+
   // Convert encoder pulse count to (electrical) radians/second
   float rotor_velocity = encoder_position_change * 9765.625f / 2400.0f * PI * 2.0f * pole_pairs;
 
@@ -66,16 +63,16 @@ void DMA1_Channel1_IRQHandler(void) {
   }
   if(flux_angle > PI)  flux_angle -= PI*2.0f;
   if(flux_angle < -PI) flux_angle += PI*2.0f;
-  //if(id < 0) flux_angle += PI;
-  // PID
-  float iq_target = (adc_data[3]-32768) / 4;
-  //float id_target = 2000;
-  float id_error = id - 1000;
-  float iq_error = iq - iq_target;
 
+  // PID
+  float id_target = 1000;
+  float iq_target = (adc_data[3]-32768) / 4;
+  float id_error = id - id_target;
+  float iq_error = iq - iq_target;
   vd -= id_error * 0.1f;
   vq -= iq_error * 0.1f;
 
+  // Limits
   if(vd >  4000) vd =  4000;
   if(vd < -4000) vd = -4000;
   if(vq >  4000) vq =  4000;
@@ -88,22 +85,13 @@ void DMA1_Channel1_IRQHandler(void) {
   float vamplitude = sqrtf(va * va + vb * vb);
   if(vamplitude > 4000) vamplitude = 4000;
   int voltage = vamplitude;
-  angle = ((vangle / PI) + 1.0f) * 67108863;
+  int angle = ((vangle / PI) + 1.0f) * 67108863;
 
   // Debug output
-  id_dbg = id;
-  iq_dbg = iq;
-  flux_angle_dbg = flux_angle * 1000.0f;
-
-  // Hard coded speed and voltage for testing
-  // 13744 = 1Hz
-  // Increment angle and wrap
-  //angle += adc_data[3] * 8;
-
-  // angle -= (adc_data[3]-32768) * 16;
-  // if(angle > 134217727) angle -= 134217728;
-  // if(angle < 0) angle += 134217728;
-  // int voltage = 4000;
+  id_debug = id;
+  iq_debug = iq;
+  vd_debug = vd;
+  vq_debug = vq;
 
   // Update PWM outputs from SVM style lookup table
   int phase = angle >> 14;
@@ -128,12 +116,15 @@ int main() {
   while(1) {
     // A handy loop for debugging
     // All the real work is interrupt driven
-    uart_write_int(imag);
+    uart_write_int(id_debug);
     uart_write_byte(',');
-    uart_write_int(iq_dbg);
+    uart_write_int(iq_debug);
     uart_write_byte(',');
-    uart_write_int(id_dbg);
-    //uart_write_byte(',');
+    uart_write_int(vd_debug);
+    uart_write_byte(',');
+    uart_write_int(vq_debug);
+    uart_write_byte(',');
+    uart_write_int(end_time - start_time);
     uart_write_nl();
     int n; for(n=0;n<1000;n++) nop();
   }
