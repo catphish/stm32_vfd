@@ -64,7 +64,7 @@ void DMA1_Channel1_IRQHandler(void) {
   if(slip >= 0) {
     target_current = (float)MAGNETIZING_CURRENT + (float)MAX_TORQUE_CURRENT * (float)slip / 32768.0f;
   } else {
-    target_current = (float)MAGNETIZING_CURRENT + (float)MAX_TORQUE_CURRENT * -(float)slip / 32768.0f;
+    target_current = (float)MAGNETIZING_CURRENT - (float)MAX_TORQUE_CURRENT * (float)slip / 32768.0f;
   }
 
   // Apply current error to voltage output
