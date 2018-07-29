@@ -101,6 +101,6 @@ int main() {
     uart_write_char(',');
     uart_write_int(voltage);
     uart_write_nl();
-    int n; for(n=0;n<1000;n++) nop();
+    //int n; for(n=0;n<1000;n++) nop();
   }
 }

@@ -33,3 +33,8 @@ hope that this should scale to larger builds for electric vehicle use. More
 experimentation will follow.
 
 My low power test build: https://imgur.com/a/IR173Ng
+
+## Field oriented control
+
+Previous iterations of this code have implemented FOC, however overall the
+simple slip based algorithm has produced better results so far.
